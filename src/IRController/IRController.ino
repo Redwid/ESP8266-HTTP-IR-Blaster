@@ -844,7 +844,7 @@ void setup() {
   Serial.println("Waiting for sync");
   setSyncProvider(getNtpTime);
   setSyncInterval(300);
-  
+
   externalIP();
 
   if (strlen(user_id) > 0) {
@@ -948,19 +948,19 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
     http.begin(url);
     Serial.println(url);
     Serial.println("Sending roku command");
-  
+
     copyCode(last_send_4, last_send_5);
     copyCode(last_send_3, last_send_4);
     copyCode(last_send_2, last_send_3);
     copyCode(last_send, last_send_2);
-  
+
     strncpy(last_send.data, data.c_str(), 40);
     last_send.bits = 1;
     strncpy(last_send.encoding, "roku", 14);
     strncpy(last_send.address, ip.c_str(), 20);
     last_send.timestamp = now();
     last_send.valid = true;
-  
+
     output = http.POST("");
     http.end();
 
