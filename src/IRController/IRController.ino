@@ -19,10 +19,10 @@
 
 // User settings are below here
 
-const bool getExternalIP = true;                              // Set to false to disable querying external IP
+const bool getExternalIP = false;                              // Set to false to disable querying external IP
 
 const bool getTime = true;                                    // Set to false to disable querying for the time
-const int timeZone = -5;                                      // Timezone (-5 is EST)
+const int timeZone = 0;                                       // Timezone (1 is GMT)
 
 const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
 
@@ -37,7 +37,7 @@ const int pins4 = 13;                                         // Transmitting pr
 const int configpin = 10;                                     // Reset Pin
 
 // User settings are above here
-const int ledpin = LED_BUILTIN;                               // Built in LED defined for WEMOS people
+const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
@@ -47,8 +47,8 @@ char port_str[6] = "80";
 char user_id[60] = "";
 const char* fingerprint = "8D 83 C3 5F 0A 09 84 AE B0 64 39 23 8F 05 9E 4D 5E 08 60 06";
 
-char static_ip[16] = "10.0.1.10";
-char static_gw[16] = "10.0.1.1";
+char static_ip[16] = "192.168.1.202";
+char static_gw[16] = "192.168.1.1";
 char static_sn[16] = "255.255.255.0";
 
 DynamicJsonDocument deviceState(1024);
@@ -161,15 +161,19 @@ bool validEPOCH(time_t timenow) {
 // EPOCH time to String
 //
 String epochToString(time_t timenow) {
-  unsigned long hours = (timenow % 86400L) / 3600;
-  String hourStr = hours < 10 ? "0" + String(hours) : String(hours);
+  char buff[32];
+  sprintf(buff, "%02d.%02d.%02d %02d:%02d:%02d", day(timenow), month(timenow), year(timenow), hour(timenow), minute(timenow), second(timenow));
+  return buff;
 
-  unsigned long minutes = (timenow % 3600) / 60;
-  String minuteStr = minutes < 10 ? "0" + String(minutes) : String(minutes);
+//  unsigned long hours = (timenow % 86400L) / 3600;
+//  String hourStr = hours < 10 ? "0" + String(hours) : String(hours);
 
-  unsigned long seconds = (timenow % 60);
-  String secondStr = seconds < 10 ? "0" + String(seconds) : String(seconds);
-  return hourStr + ":" + minuteStr + ":" + secondStr;
+//  unsigned long minutes = (timenow % 3600) / 60;
+//  String minuteStr = minutes < 10 ? "0" + String(minutes) : String(minutes);
+
+//  unsigned long seconds = (timenow % 60);
+//  String secondStr = seconds < 10 ? "0" + String(seconds) : String(seconds);
+//  return hourStr + ":" + minuteStr + ":" + secondStr;
 }
 
 //+=============================================================================
@@ -270,49 +274,7 @@ void tick()
 //
 String externalIP()
 {
-  if (!getExternalIP) {
     return "0.0.0.0"; // User doesn't want the external IP
-  }
-
-  if (strlen(_ip) > 0) {
-    unsigned long delta = millis() - lastupdate;
-    if (delta > resetfrequency || lastupdate == 0) {
-      Serial.println("Reseting cached external IP address");
-      strncpy(_ip, "", 16); // Reset the cached external IP every 72 hours
-    } else {
-      return String(_ip); // Return the cached external IP
-    }
-  }
-
-  HTTPClient http;
-  externalIPError = false;
-  unsigned long start = millis();
-  http.setTimeout(5000);
-  http.begin(serverName, 8245);
-  int httpCode = http.GET();
-
-  if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
-    String payload = http.getString();
-    int pos_start = payload.indexOf("IP Address") + 12; // add 10 for "IP Address" and 2 for ":" + "space"
-    int pos_end = payload.indexOf("</body>", pos_start); // add nothing
-    strncpy(_ip, payload.substring(pos_start, pos_end).c_str(), 16);
-    Serial.print(F("External IP: "));
-    Serial.println(_ip);
-    lastupdate = millis();
-  } else {
-    Serial.println("Error retrieving external IP");
-    Serial.print("HTTP Code: ");
-    Serial.println(httpCode);
-    Serial.println(http.errorToString(httpCode));
-    externalIPError = true;
-  }
-
-  http.end();
-  Serial.print("External IP address request took ");
-  Serial.print(millis() - start);
-  Serial.println(" ms");
-
-  return _ip;
 }
 
 
@@ -845,7 +807,7 @@ void setup() {
   setSyncProvider(getNtpTime);
   setSyncInterval(300);
 
-  externalIP();
+  //externalIP();
 
   if (strlen(user_id) > 0) {
     userIDError = !validUID(user_id);
@@ -1073,7 +1035,7 @@ void sendHeader(int httpcode) {
   server->sendContent("  </head>\n");
   server->sendContent("  <body>\n");
   server->sendContent("    <div class='container'>\n");
-  server->sendContent("      <h1><a href='https://github.com/mdhiggins/ESP8266-HTTP-IR-Blaster'>ESP8266 IR Controller</a></h1>\n");
+  server->sendContent("      <h1><a href='https://github.com/Redwid/ESP8266-HTTP-IR-Blaster'>ESP8266 IR Controller</a></h1>\n");
   server->sendContent("      <div class='row'>\n");
   server->sendContent("        <div class='col-md-12'>\n");
   server->sendContent("          <ul class='nav nav-pills'>\n");
@@ -1081,8 +1043,8 @@ void sendHeader(int httpcode) {
   server->sendContent("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n");
-  server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
+//  server->sendContent("            <li class='active'>\n");
+//  server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
   server->sendContent("          </ul>\n");
@@ -1234,11 +1196,11 @@ void sendCodePage(Code selCode, int httpcode){
   server->sendContent("        <div class='col-md-12'>\n");
   server->sendContent("          <ul class='list-unstyled'>\n");
   server->sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li>\n");
+  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "],'type':'raw','khz':38}]</pre></li>\n");
   server->sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li></ul>\n");
+  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "],'type':'raw','khz':38}]</pre></li>\n");
+//  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+//  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "],'type':'raw','khz':38}]</pre></li></ul>\n");
   } else if (String(selCode.encoding) == "PANASONIC" || String(selCode.encoding) == "NEC") {
   //} else if (strtoul(selCode.address, 0, 0) > 0) {
   server->sendContent("      <div class='row'>\n");
@@ -1248,15 +1210,15 @@ void sendCodePage(Code selCode, int httpcode){
   server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li>\n");
   server->sendContent("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
   server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li></ul>\n");
+//  server->sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
+//  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li></ul>\n");
   server->sendContent("          <ul class='list-unstyled'>\n");
   server->sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li>\n");
+  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + ",'address':'" + String(selCode.address) + "'}]</pre></li>\n");
   server->sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li></ul>\n");
+  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + ",'address':'" + String(selCode.address) + "'}]</pre></li>\n");
+//  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+//  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + ",'address':'" + String(selCode.address) + "'}]</pre></li></ul>\n");
   } else {
   server->sendContent("      <div class='row'>\n");
   server->sendContent("        <div class='col-md-12'>\n");
@@ -1265,15 +1227,15 @@ void sendCodePage(Code selCode, int httpcode){
   server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
   server->sendContent("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
   server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li></ul>\n");
+//  server->sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
+//  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li></ul>\n");
   server->sendContent("          <ul class='list-unstyled'>\n");
   server->sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li>\n");
+  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + "}]</pre></li>\n");
   server->sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li></ul>\n");
+  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + "}]</pre></li>\n");
+//  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+//  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + "}]</pre></li></ul>\n");
   }
   server->sendContent("        </div>\n");
   server->sendContent("     </div>\n");
